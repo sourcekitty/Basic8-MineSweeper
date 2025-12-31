@@ -1,37 +1,36 @@
-drv = driver()
-
 'Config
-
-mine_count = 18
-sprite_size = 8
-startx = 3
-starty = 1
-listwidth = 14
-listheight = 14
+minMines = 18
+maxMines = 25
+gridStartX = 3
+gridStartY = 1
+gridWidth = 14
+gridHeight = 14
+spriteSize = 8
 
 'Code
-rawt = 0
-t = 0
-mx=0
-my=0
-isMouse = false
-hasClicked = false
-gameOver = false
-hasWon = false
-
+drv = driver()
+time = 0
+selX = 0
+selY = 0
+mouseDown = false
+mouseClicked = false
+wonGame = false
+lostGame = false
+mines = 0
 tiles = nil
 shown = nil
 flags = nil
 
-def init()
+def startGame()
 	'Tiles
 	tiles = LIST()
-		for i = 0 to (listwidth * listheight) - 1
+	for i = 0 to (gridWidth * gridHeight) - 1
 		INSERT(tiles,i,0)
 	next
+	
 	'Mines
 	allPositions = LIST()
-	for i = 0 to (listwidth * listheight) - 1
+	for i = 0 to (gridWidth * gridHeight) - 1
     	INSERT(allPositions, i, i)
 	next
 
@@ -42,80 +41,76 @@ def init()
 		SET(allPositions, j, temp)
 	next
 	
-	for i = 0 to mine_count - 1
+	for i = 0 to mines - 1
     	pos = GET(allPositions, i)
     	SET(tiles, pos, 1)
 	next
-	'Show
+	
+	'Shown
 	shown = LIST()
-	for i = 0 to (listwidth * listheight) - 1
+	for i = 0 to (gridWidth * gridHeight) - 1
     	INSERT(shown, i, 0)
 	next
+	
 	'Flags
 	flags = LIST()
-	for i = 0 to (listwidth * listheight) - 1
+	for i = 0 to (gridWidth * gridHeight) - 1
     	INSERT(flags, i, 0)
 	next
 enddef
 
-s_tile = load_resource("tile.sprite")
-s_hover = load_resource("hover.sprite")
-s_bomb = load_resource("bomb.sprite")
-s_flag = load_resource("flag.sprite")
-s_show = load_resource("shown.sprite")
-
-init()
-
-def uptime(delta)
-	rawt = rawt + (delta)
-	t = floor(rawt)
+def restartGame()
+	time = 0
+	tiles = nil
+	shown = nil
+	flags = nil
+	wonGame = false
+	lostGame = false
+	mines = rnd(minMines,maxMines)
+	startGame()
 enddef
 
-def tile(x,y,atype)
-	x = (startx * sprite_size) + x * sprite_size
-	y = (starty * sprite_size) + y * sprite_size
-	sprite = s_tile
-	if atype = 0 then
-		sprite = s_tile
-	elseif atype = 1 then
-		sprite = s_hover
-	elseif atype = 2 then
-		sprite = s_bomb
-	elseif atype = 3 then
-		sprite = s_flag
-	elseif atype = 4 then
-		sprite = s_show
-	endif
-	SPR sprite, x, y, 0
+tileSprites = LIST()
+INSERT(tileSprites, 0, load_resource("tile.sprite"))
+INSERT(tileSprites, 1, load_resource("shown.sprite"))
+INSERT(tileSprites, 2, load_resource("bomb.sprite"))
+INSERT(tileSprites, 3, load_resource("flag.sprite"))
+INSERT(tileSprites, 4, load_resource("hover.sprite"))
+
+mines = rnd(minMines,maxMines)
+startGame()
+
+def timeTick(d)
+	time = time + d
 enddef
 
-def gtile(x, y)
-    if x < 0 or y < 0 or x >= listwidth or y >= listheight then
-        return -1
-    endif
-    return GET(tiles, y * listwidth + x)
+def tile(x,y,t)
+	x = (gridStartX * spriteSize) + x * spriteSize
+	y = (gridStartY * spriteSize) + y * spriteSize
+	SPR GET(tileSprites,t), x, y, 0
 enddef
 
-def isShown(x, y)
-	if x < 0 or y < 0 or x >= listwidth or y >= listheight then
-        return nil
-    endif
-    return GET(shown, y * listwidth + x)
+def getTile(x,y)
+	if x < 0 or y < 0 or x >= gridWidth or y >= gridHeight then return nil endif
+    return GET(tiles, y * gridWidth + x)
 enddef
 
-def setShown(x, y)
-    SET(shown, y * listwidth + x, 1)
+def tileShown(x,y)
+	if x < 0 or y < 0 or x >= gridWidth or y >= gridHeight then return nil endif
+    return GET(shown, y * gridWidth + x)
 enddef
 
-def isFlagged(x, y)
-	if x < 0 or y < 0 or x >= listwidth or y >= listheight then
-        return nil
-    endif
-    return GET(flags, y * listwidth + x)
+def tileShow(x,y)
+    SET(shown, y * gridWidth + x, 1)
 enddef
 
-def toggleFlagged(x, y)
-    idx = y * listwidth + x
+def tileFlagged(x,y)
+	if x < 0 or y < 0 or x >= gridWidth or y >= gridHeight then return nil endif
+    return GET(flags, y * gridWidth + x)
+enddef
+
+def tileFlag(x,y)
+    idx = y * gridWidth + x
     if GET(flags, idx) = 1 then
         SET(flags, idx, 0)
     else
@@ -123,14 +118,14 @@ def toggleFlagged(x, y)
     endif
 enddef
 
-def neartiles(x, y)
+def tilesNear(x,y)
     near = 0
     for dx = -1 to 1
         for dy = -1 to 1
             if dx <> 0 or dy <> 0 then
                 nx = x + dx
                 ny = y + dy
-                if gtile(nx, ny) = 1 then
+                if getTile(nx, ny) = 1 then
                     near = near + 1
                 endif
             endif
@@ -139,8 +134,8 @@ def neartiles(x, y)
     return near
 enddef
 
-def flood(x, y)
-	if isFlagged(x, y) = 1 then return
+def flood(x,y)
+	if tileFlagged(x, y) = 1 then return
     tilesToCheck = LIST()
     INSERT(tilesToCheck, 0, x)
     INSERT(tilesToCheck, 1, y)
@@ -151,10 +146,10 @@ def flood(x, y)
         ty = GET(tilesToCheck, index + 1)
         index = index + 2
 
-        if tx >= 0 and ty >= 0 and tx < listwidth and ty < listheight then
-            if isShown(tx, ty) = 0 and gtile(tx, ty) = 0 then
-                setShown(tx, ty)
-                near = neartiles(tx, ty)
+        if tx >= 0 and ty >= 0 and tx < gridWidth and ty < gridHeight then
+            if tileShown(tx, ty) = 0 and getTile(tx, ty) = 0 then
+                tileShow(tx, ty)
+                near = tilesNear(tx, ty)
                 if near = 0 then
                     INSERT(tilesToCheck, LEN(tilesToCheck), tx - 1)
                     INSERT(tilesToCheck, LEN(tilesToCheck), ty)
@@ -168,118 +163,139 @@ def flood(x, y)
                     INSERT(tilesToCheck, LEN(tilesToCheck), tx)
                     INSERT(tilesToCheck, LEN(tilesToCheck), ty + 1)
                 endif
-			elseif gtile(tx, ty) = 1 then
-				setShown(tx, ty)
+			elseif getTile(tx, ty) = 1 then
+				tileShow(tx, ty)
             endif
         endif
-	
 	wend
 enddef
 
 def checkWin()
     shownCount = 0
-    safeTiles = (listwidth * listheight) - mine_count
-    for i = 0 to (listwidth * listheight) - 1
+    safeTiles = (gridWidth * gridHeight) - mines
+    for i = 0 to (gridWidth * gridHeight) - 1
         if GET(tiles, i) = 0 and GET(shown, i) = 1 then
             shownCount = shownCount + 1
         endif
     next
     if shownCount = safeTiles then
-        hasWon = true
-        gameOver = false
+        wonGame = true
+        lostGame = false
+		for y2 = 0 to gridHeight - 1
+			for x2 = 0 to gridWidth - 1
+				if getTile(x2, y2) = 1 then
+					if tileFlagged(x2, y2) = 1 then return
+					tileFlag(x2,y2)
+				endif
+			next
+		next
     endif
 enddef
 
-def update(delta)	
-	touch 0, tx, ty, m1,m2
-	mx = ( (startx * sprite_size) - tx ) / -sprite_size
-	my = ( (starty * sprite_size) - ty ) / -sprite_size
-	mx = floor(mx)
-	my = floor(my)
+def controlTick()
+	touch 0, tx, ty, m1, m2
+	selX = ((gridStartX * spriteSize) - tx) / -spriteSize
+	selY = ((gridStartY * spriteSize) - ty) / -spriteSize
+	selX = floor(selX)
+	selY = floor(selY)
 	
 	if m1 or m2 then
-		isMouse = true
+		mouseDown = true
 	else
-		isMouse = false
+		mouseDown = false
 	endif
 	
-	for y = 0 to listheight - 1
-    	for x = 0 to listwidth - 1
-        	if isShown(x, y) = 0 then
+	if mouseDown then
+		if mouseClicked then return
+		mouseClicked = true
+		if m1 and not (wonGame or lostGame) then
+			if getTile(selX, selY) = 1 then
+				if tileFlagged(selX, selY) = 1 then return
+				lostGame = true
+				for y2 = 0 to gridHeight - 1
+					for x2 = 0 to gridWidth - 1
+						if getTile(x2, y2) = 1 then
+							tileShow(x2 ,y2)
+						endif
+					next
+				next
+			else
+				flood(selX, selY)
+				checkWin()
+			endif
+		elseif m2 and not (wonGame or lostGame) then
+			if tileShown(selX, selY) = 0 then
+				tileFlag(selX,selY)
+			endif
+		elseif m2 and (wonGame or lostGame) then
+			restartGame()
+		endif
+	else
+		mouseClicked = false
+	endif
+enddef
+
+def renderGrid()
+	for y = 0 to gridHeight - 1
+    	for x = 0 to gridWidth - 1
+			if tileFlagged(x, y) = 1 then
+				tile(x, y, 3)
+   	     	elseif tileShown(x, y) = 0 then
             	tile(x, y, 0)
-				if isFlagged(x, y) = 1 then
-					tile(x, y, 3)
-				endif
         	else
-            	if gtile(x, y) = 1 then
-					tile(x, y, 4)
+            	if getTile(x, y) = 1 then
                 	tile(x, y, 2)
             	else
-                	tile(x, y, 4)
-                	n = nearTiles(x, y)
+                	tile(x, y, 1)
+                	n = tilesNear(x, y)
                 	if n > 0 then
-                    	text (startx + x) * sprite_size, (starty + y) * sprite_size, str(n), rgba(255,255,255)
+						textColour = rgba(255,255,255)
+						
+						if n = 1 then
+							textColour = rgba(55, 55, 255)
+						elseif n = 2 then
+							textColour = rgba(38, 171, 21)
+						elseif n = 3 then
+							textColour = rgba(200, 20, 20)
+						elseif n = 4 then
+							textColour = rgba(40, 123, 247)
+						elseif n = 5 then
+							textColour = rgba(150, 44, 27)
+						elseif n = 6 then
+							textColour = rgba(43, 151, 181)
+						elseif n = 7 then
+							textColour = rgba(121, 44, 168)
+						elseif n = 8 then
+							textColour = rgba(0, 0, 0)
+						endif
+						
+                    	text (gridStartX + x) * spriteSize, (gridStartY + y) * spriteSize, str(n), textColour
                 	endif
             	endif
         	endif
     	next
 	next
-	
-	if mx > -1 and my > -1 and mx < listwidth and my < listheight then
-		tile(mx, my, 1)
+enddef
+
+def update(delta)
+	controlTick()
+	renderGrid()
+	if selX > -1 and selY > -1 and selX < gridWidth and selY < gridHeight then
+		tile(selX, selY, 4)
 	endif
 	
-	if isMouse then
-		if not hasClicked then
-			hasClicked = true
-			if m1 and not (hasWon or gameOver) then
-				if gtile(mx, my) = 1 then
-        			gameOver = true
-        			for y2 = 0 to listheight - 1
-            			for x2 = 0 to listwidth - 1
-                			if gtile(x2, y2) = 1 then
-                    			setShown(x2, y2)
-                			endif
-            			next
-        			next
-    			else
-        			flood(mx, my)
-        			checkWin()
-    			endif
-			elseif m2 and not (hasWon or gameOver) then
-				if isShown(mx, my) = 0 then
-        			toggleFlagged(mx, my)
-    			endif
-			elseif m1 and (hasWon or gameOver) then
-				if my <> 14 then return
-				rawt = 0
-				t = 0
-				hasWon = false
-				gameOver = false
-				init()
-			endif
-		endif
-	else
-		hasClicked = false
+	if wonGame or lostGame then
+		text 0,120,"Rt Click to Restart!",rgba(255,255,255)
 	endif
 	
-	if hasWon or gameOver then
-		if my <> 14 then
-			text 0,120,"RESTART?",rgba(255,255,255)
-		else
-			text 0,120,"RESTART!",rgba(255,0,0)
-		endif
-	endif
-	
-	if hasWon then
+	if wonGame then
 		text 0,0,"YOU WIN!",rgba(0,255,0)
-		text 72,0,"Time: "+str(t),rgba(255,255,255)
-	elseif gameOver then
+		text 72,0,"Time: "+str(round(time)),rgba(255,255,255)
+	elseif lostGame then
 		text 0,0,"YOU LOSE!",rgba(255,0,0)
-		text 72,0,"Time: "+str(t),rgba(255,255,255)
 	else
-		uptime(delta)
-		text 0,0,"Time: "+str(t),rgba(255,255,255)
+		timeTick(delta)
+		text 0,0,"Time: "+str(round(time)),rgba(255,255,255)
 	endif
 enddef
 
