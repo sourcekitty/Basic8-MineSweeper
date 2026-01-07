@@ -20,65 +20,23 @@ mines = 0
 tiles = nil
 shown = nil
 flags = nil
+nears = nil
 
-def startGame()
-	'Tiles
-	tiles = LIST()
-	for i = 0 to (gridWidth * gridHeight) - 1
-		INSERT(tiles,i,0)
-	next
-	
-	'Mines
-	allPositions = LIST()
-	for i = 0 to (gridWidth * gridHeight) - 1
-    	INSERT(allPositions, i, i)
-	next
-
-	for i = 0 to LEN(allPositions) - 1
-		j = RND(0, LEN(allPositions) - 1)
-    	temp = GET(allPositions, i)
-    	SET(allPositions, i, GET(allPositions, j))
-		SET(allPositions, j, temp)
-	next
-	
-	for i = 0 to mines - 1
-    	pos = GET(allPositions, i)
-    	SET(tiles, pos, 1)
-	next
-	
-	'Shown
-	shown = LIST()
-	for i = 0 to (gridWidth * gridHeight) - 1
-    	INSERT(shown, i, 0)
-	next
-	
-	'Flags
-	flags = LIST()
-	for i = 0 to (gridWidth * gridHeight) - 1
-    	INSERT(flags, i, 0)
-	next
-enddef
-
-def restartGame()
-	time = 0
-	tiles = nil
-	shown = nil
-	flags = nil
-	wonGame = false
-	lostGame = false
-	mines = rnd(minMines,maxMines)
-	startGame()
-enddef
-
-tileSprites = LIST()
-INSERT(tileSprites, 0, load_resource("tile.sprite"))
-INSERT(tileSprites, 1, load_resource("shown.sprite"))
-INSERT(tileSprites, 2, load_resource("bomb.sprite"))
-INSERT(tileSprites, 3, load_resource("flag.sprite"))
-INSERT(tileSprites, 4, load_resource("hover.sprite"))
-
-mines = rnd(minMines,maxMines)
-startGame()
+tileSprites = LIST(
+	load_resource("tile.sprite"),
+	load_resource("shown.sprite"),
+	load_resource("bomb.sprite"),
+	load_resource("flag.sprite"),
+	load_resource("hover.sprite"),
+	load_resource("n1.sprite"),
+	load_resource("n2.sprite"),
+	load_resource("n3.sprite"),
+	load_resource("n4.sprite"),
+	load_resource("n5.sprite"),
+	load_resource("n6.sprite"),
+	load_resource("n7.sprite"),
+	load_resource("n8.sprite")
+)
 
 def timeTick(d)
 	time = time + d
@@ -192,6 +150,53 @@ def checkWin()
     endif
 enddef
 
+def startGame()
+	'Tiles
+	tiles = LIST()
+	for i = 0 to (gridWidth * gridHeight) - 1
+		INSERT(tiles, i, 0)
+	next
+	shown = CLONE(tiles)
+	flags = CLONE(tiles)
+	nears = LIST()
+	
+	'Mines
+	allPositions = LIST()
+	for i = 0 to (gridWidth * gridHeight) - 1
+    	INSERT(allPositions, i, i)
+	next
+
+	for i = 0 to LEN(allPositions) - 1
+		j = RND(0, LEN(allPositions) - 1)
+    	temp = GET(allPositions, i)
+    	SET(allPositions, i, GET(allPositions, j))
+		SET(allPositions, j, temp)
+	next
+	
+	for i = 0 to mines - 1
+    	pos = GET(allPositions, i)
+    	SET(tiles, pos, 1)
+	next
+	
+	for y = 0 to gridHeight - 1
+    	for x = 0 to gridWidth - 1
+			n = tilesNear(x, y)
+			PUSH(nears, n)
+    	next
+	next
+enddef
+
+def restartGame()
+	time = 0
+	tiles = nil
+	shown = nil
+	flags = nil
+	wonGame = false
+	lostGame = false
+	mines = rnd(minMines,maxMines)
+	startGame()
+enddef
+
 def controlTick()
 	touch 0, tx, ty, m1, m2
 	selX = ((gridStartX * spriteSize) - tx) / -spriteSize
@@ -246,36 +251,20 @@ def renderGrid()
             	if getTile(x, y) = 1 then
                 	tile(x, y, 2)
             	else
-                	tile(x, y, 1)
-                	n = tilesNear(x, y)
+                	n = GET(nears, y * gridWidth + x)
                 	if n > 0 then
-						textColour = rgba(255,255,255)
-						
-						if n = 1 then
-							textColour = rgba(55, 55, 255)
-						elseif n = 2 then
-							textColour = rgba(38, 171, 21)
-						elseif n = 3 then
-							textColour = rgba(200, 20, 20)
-						elseif n = 4 then
-							textColour = rgba(40, 123, 247)
-						elseif n = 5 then
-							textColour = rgba(150, 44, 27)
-						elseif n = 6 then
-							textColour = rgba(43, 151, 181)
-						elseif n = 7 then
-							textColour = rgba(121, 44, 168)
-						elseif n = 8 then
-							textColour = rgba(0, 0, 0)
-						endif
-						
-                    	text (gridStartX + x) * spriteSize, (gridStartY + y) * spriteSize, str(n), textColour
+						tile(x, y, n + 4)
+					else
+						tile(x, y, 1)
                 	endif
             	endif
         	endif
     	next
 	next
 enddef
+
+mines = rnd(minMines,maxMines)
+startGame()
 
 def update(delta)
 	controlTick()
