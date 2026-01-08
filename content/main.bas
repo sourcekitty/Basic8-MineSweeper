@@ -145,6 +145,9 @@ def checkWin()
     if shownCount = safeTiles then
         wonGame = true
         lostGame = false
+		for i = 0 to (gridWidth * gridHeight) - 1
+			INSERT(shown, i, 1)
+		next
 		for y2 = 0 to gridHeight - 1
 			for x2 = 0 to gridWidth - 1
 				if getTile(x2, y2) = 1 then
