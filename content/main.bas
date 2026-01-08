@@ -1,6 +1,6 @@
 'Config
-minMines = 18
-maxMines = 25
+minMines = 14
+maxMines = 20
 gridStartX = 3
 gridStartY = 1
 gridWidth = 14
@@ -21,6 +21,7 @@ tiles = nil
 shown = nil
 flags = nil
 nears = nil
+hasStart = false
 
 tileSprites = LIST(
 	load_resource("tile.sprite"),
@@ -56,6 +57,11 @@ enddef
 def tileShown(x,y)
 	if x < 0 or y < 0 or x >= gridWidth or y >= gridHeight then return nil endif
     return GET(shown, y * gridWidth + x)
+enddef
+
+def setTile(x,y,n)
+	if x < 0 or y < 0 or x >= gridWidth or y >= gridHeight then return nil endif
+	SET(tiles, y * gridWidth + x, n)
 enddef
 
 def tileShow(x,y)
@@ -180,8 +186,7 @@ def startGame()
 	
 	for y = 0 to gridHeight - 1
     	for x = 0 to gridWidth - 1
-			n = tilesNear(x, y)
-			PUSH(nears, n)
+			PUSH(nears, 0)
     	next
 	next
 enddef
@@ -193,6 +198,7 @@ def restartGame()
 	flags = nil
 	wonGame = false
 	lostGame = false
+	hasStarted = false
 	mines = rnd(minMines,maxMines)
 	startGame()
 enddef
@@ -214,9 +220,24 @@ def controlTick()
 		if mouseClicked then return
 		mouseClicked = true
 		if m1 and not (wonGame or lostGame) then
-			if getTile(selX, selY) = 1 then
+			if hasStarted = false then
+				hasStarted = true
+				if getTile(selX, selY) = 1 then
+					setTile(selX,selY,0)
+				endif
+				nears = LIST()
+				for y = 0 to gridHeight - 1
+    				for x = 0 to gridWidth - 1
+						n = tilesNear(x, y)
+						PUSH(nears, n)
+    				next
+				next
+			elseif getTile(selX, selY) = 1 then
 				if tileFlagged(selX, selY) = 1 then return
 				lostGame = true
+				for i = 0 to (gridWidth * gridHeight) - 1
+					INSERT(flags, i, 0)
+				next
 				for y2 = 0 to gridHeight - 1
 					for x2 = 0 to gridWidth - 1
 						if getTile(x2, y2) = 1 then
@@ -234,6 +255,7 @@ def controlTick()
 			endif
 		elseif m2 and (wonGame or lostGame) then
 			restartGame()
+			hasStarted = false
 		endif
 	else
 		mouseClicked = false
