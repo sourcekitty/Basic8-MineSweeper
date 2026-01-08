@@ -235,7 +235,8 @@ def controlTick()
 						PUSH(nears, n)
     				next
 				next
-			elseif getTile(selX, selY) = 1 then
+			endif
+			if getTile(selX, selY) = 1 then
 				if tileFlagged(selX, selY) = 1 then return
 				lostGame = true
 				for i = 0 to (gridWidth * gridHeight) - 1
